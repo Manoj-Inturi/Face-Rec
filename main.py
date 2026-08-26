@@ -1,45 +1,119 @@
 import cv2
+import mediapipe as mp
 
-# Open the camera
-camera = cv2.VideoCapture(0)
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
-# Load OpenCV's face detector
-face_detector = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+
+# --------------------------------
+# 1. Load the face detector model
+# --------------------------------
+
+model_path = "models/face_detector.task"
+
+base_options = python.BaseOptions(
+    model_asset_path=model_path
 )
 
+options = vision.FaceDetectorOptions(
+    base_options=base_options
+)
+
+detector = vision.FaceDetector.create_from_options(options)
+
+print("Face detector created successfully!")
+
+
+# --------------------------------
+# 2. Open the laptop camera
+# --------------------------------
+
+camera = cv2.VideoCapture(0)
+
+
+# --------------------------------
+# 3. Continuously read camera frames
+# --------------------------------
+
 while True:
+
     success, frame = camera.read()
 
     if not success:
         print("Could not access camera")
         break
 
-    # Convert the camera image to grayscale
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Find faces
-    faces = face_detector.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5
+    # --------------------------------
+    # 4. Convert OpenCV BGR → RGB
+    # --------------------------------
+
+    rgb_frame = cv2.cvtColor(
+        frame,
+        cv2.COLOR_BGR2RGB
     )
 
-    # Draw a rectangle around every detected face
-    for x, y, width, height in faces:
+
+    # --------------------------------
+    # 5. Convert frame to MediaPipe image
+    # --------------------------------
+
+    mp_image = mp.Image(
+        image_format=mp.ImageFormat.SRGB,
+        data=rgb_frame
+    )
+
+
+    # --------------------------------
+    # 6. Detect faces
+    # --------------------------------
+
+    result = detector.detect(mp_image)
+
+
+    # --------------------------------
+    # 7. Draw a rectangle around faces
+    # --------------------------------
+
+    for detection in result.detections:
+
+        box = detection.bounding_box
+
+        x = box.origin_x
+        y = box.origin_y
+        width = box.width
+        height = box.height
+
         cv2.rectangle(
             frame,
             (x, y),
             (x + width, y + height),
-            (255, 0, 0),
+            (255, 225, 225),
             2
         )
 
-    cv2.imshow("Face Detection", frame)
 
-    # Press Q to quit
+    # --------------------------------
+    # 8. Display the camera
+    # --------------------------------
+
+    cv2.imshow(
+        "Face Detection",
+        frame
+    )
+
+
+    # --------------------------------
+    # 9. Press Q to quit
+    # --------------------------------
+
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
+
+
+# --------------------------------
+# 10. Close camera and windows
+# --------------------------------
 
 camera.release()
 cv2.destroyAllWindows()
